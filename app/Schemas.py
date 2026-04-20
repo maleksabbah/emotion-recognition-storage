@@ -9,7 +9,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 
-# ── Requests ───────────────────────────────────────────
+# ââ Requests âââââââââââââââââââââââââââââââââââââââââââ
 
 class PresignUploadRequest(BaseModel):
     session_id: str
@@ -43,7 +43,7 @@ class RegisterFileRequest(BaseModel):
     metadata_json: Optional[str] = None
 
 
-# ── Responses ──────────────────────────────────────────
+# ââ Responses ââââââââââââââââââââââââââââââââââââââââââ
 
 class PresignUploadResponse(BaseModel):
     file_id: str
@@ -89,15 +89,26 @@ class HealthResponse(BaseModel):
     status: str
     s3_connected: bool
     db_connected: bool
+# ADD THIS TO EmotionRecognitionStorage/app/Schemas.py
+# Place it alongside the other request models (near SaveCropsRequest / RegisterFileRequest)
+
+from pydantic import BaseModel
+from typing import Optional
+
 
 class SaveOutputRequest(BaseModel):
-    """Worker output handoff � bytes + caller-assigned key."""
+    """Worker output handoff â€” bytes + caller-assigned key.
+
+    Storage writes to MinIO at the given s3_key and registers the file.
+    The caller (worker) chose the key; storage does not invent it.
+    """
     session_id: str
     category: str = "burned"
-    file_type: str
+    file_type: str  # "image" | "video" | etc.
     s3_key: str
     mime_type: str
     data_b64: str
     user_id: Optional[str] = None
     original_filename: Optional[str] = None
     metadata_json: Optional[str] = None
+
