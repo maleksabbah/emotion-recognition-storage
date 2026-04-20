@@ -89,3 +89,15 @@ class HealthResponse(BaseModel):
     status: str
     s3_connected: bool
     db_connected: bool
+
+class SaveOutputRequest(BaseModel):
+    """Worker output handoff — bytes + caller-assigned key."""
+    session_id: str
+    category: str = "burned"
+    file_type: str
+    s3_key: str
+    mime_type: str
+    data_b64: str
+    user_id: Optional[str] = None
+    original_filename: Optional[str] = None
+    metadata_json: Optional[str] = None
