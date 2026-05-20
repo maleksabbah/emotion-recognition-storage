@@ -1,7 +1,8 @@
 """
-Storage Service — FastAPI application.
+Storage service entry point.
 
-Manages all S3/MinIO operations and file metadata in storage_db.
+Builds the FastAPI app: lifespan creates the two boto3 clients (ops +
+presign), CORS, domain exception handler, mounts health + file routers.
 """
 from __future__ import annotations
 
@@ -9,11 +10,11 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from app.Database import init_db
-from app.S3 import S3Client
-from app.Events import start_producer, stop_producer
-from app.Routes import router
+from app.Config import CORS_ORIGINS, make_ops_client, make_presign_client
+from app.Exceptions import register_exception_handlers
+from app.Routes import file_router, health_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,61 +23,34 @@ logging.basicConfig(
 logger = logging.getLogger("storage")
 
 
-_s3_ok = False
-_db_ok = False
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _s3_ok, _db_ok
-    logger.info("Starting Storage Service...")
+    logger.info("Starting storage...")
+    app.state.s3_ops = make_ops_client()
+    app.state.s3_presign = make_presign_client()
+    logger.info("Storage ready")
 
-    # Init database tables
-    try:
-        await init_db()
-        _db_ok = True
-        logger.info("  PostgreSQL connected")
-    except Exception as e:
-        logger.error("  PostgreSQL failed: %s", e)
-
-    # Ensure S3 bucket exists
-    try:
-        s3 = S3Client()
-        s3.ensure_bucket()
-        _s3_ok = True
-        logger.info("  S3/MinIO connected")
-    except Exception as e:
-        logger.error("  S3/MinIO failed: %s", e)
-
-    # Start Kafka event producer
-    try:
-        await start_producer()
-        logger.info("  Kafka producer started")
-    except Exception as e:
-        logger.warning("  Kafka producer failed (non-fatal): %s", e)
-
-    logger.info("Storage Service ready")
     yield
 
-    # Shutdown
-    await stop_producer()
-    logger.info("Storage Service stopped")
+    logger.info("Shutting down...")
+    # boto3 clients close on garbage collection — nothing to await
 
 
 app = FastAPI(
-    title="Emotion Recognition Storage Service",
+    title="Emotion Recognition Storage",
     version="1.0.0",
     lifespan=lifespan,
 )
-app.include_router(router)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Health check — root level, used by Docker health check
-@app.get("/health")
-async def health():
-    return {
-        "status": "ok",
-        "service": "storage",
-        "postgres": _db_ok,
-        "s3": _s3_ok,
-    }
+register_exception_handlers(app)
+
+app.include_router(health_router)
+app.include_router(file_router)

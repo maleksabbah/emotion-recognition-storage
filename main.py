@@ -1,6 +1,7 @@
-"""Storage Service entry point for Docker."""
-import uvicorn
-from app.main import app
+"""Root entry point — runs the worker's async loop from app/main.py."""
+import asyncio
+
+from app.main import run
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8002)
+    asyncio.run(run())

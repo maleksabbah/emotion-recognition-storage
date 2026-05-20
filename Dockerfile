@@ -1,6 +1,6 @@
 # EmotionRecognitionStorage
-# FastAPI: S3/MinIO operations, file metadata in storage_db
-# Talks to: PostgreSQL (storage_db), MinIO (S3)
+# FastAPI: sole S3 gatekeeper, presigned URLs, file metadata
+# Talks to: PostgreSQL (storage_db), MinIO/S3
 # Port: 8002
 
 FROM python:3.11-slim
@@ -9,6 +9,8 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    build-essential \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
