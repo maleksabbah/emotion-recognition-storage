@@ -17,11 +17,10 @@ POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", "5432"))
 POSTGRES_USER = os.getenv("POSTGRES_USER", "emotion")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "emotion_dev")
 STORAGE_DB = os.getenv("STORAGE_DB", "storage_db")
-STORAGE_DB_URL = (
+STORAGE_DB_URL = os.getenv("DATABASE_URL") or (
     f"postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}"
     f"@{POSTGRES_HOST}:{POSTGRES_PORT}/{STORAGE_DB}"
 )
-
 
 # ─── S3 / MinIO ────────────────────────────────────────────────────────
 
