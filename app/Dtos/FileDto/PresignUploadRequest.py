@@ -7,7 +7,6 @@ from pydantic import BaseModel, field_validator
 _ALLOWED_MIME_TYPES = frozenset({
     "image/jpeg", "image/png", "image/gif", "image/webp",
     "video/mp4", "video/webm", "video/quicktime", "video/x-msvideo",
-    "audio/mpeg", "audio/wav", "audio/webm",
 })
 
 
