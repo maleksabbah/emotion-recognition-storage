@@ -44,13 +44,13 @@ class FileRepository:
 
     async def create(self, record: FileRecord) -> FileRecord:
         self.db.add(record)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(record)
         return record
 
     async def create_many(self, records: Iterable[FileRecord]) -> None:
         self.db.add_all(list(records))
-        await self.db.commit()
+        await self.db.flush()
 
 
 def _as_uuid(value: str | uuid.UUID) -> uuid.UUID:

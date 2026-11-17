@@ -27,8 +27,9 @@ from app.Dtos.FileDto.SaveOutputRequest import SaveOutputRequest
 from app.Dtos.FileDto.SaveOutputResponse import SaveOutputResponse
 from app.Services.FileService import FileService
 from app.Dependencies import get_file_service
+from app.Security.ServiceAuth import require_service_auth
 
-router = APIRouter(prefix="/internal", tags=["files"])
+router = APIRouter(prefix="/internal", tags=["files"], dependencies=[Depends(require_service_auth)])
 
 
 @router.post("/presign/upload", response_model=PresignUploadResponse)

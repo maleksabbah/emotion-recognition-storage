@@ -15,7 +15,7 @@ import os
 POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
 POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", "5432"))
 POSTGRES_USER = os.getenv("POSTGRES_USER", "emotion")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "emotion_dev")
+POSTGRES_PASSWORD = os.environ["POSTGRES_PASSWORD"]
 STORAGE_DB = os.getenv("STORAGE_DB", "storage_db")
 STORAGE_DB_URL = os.getenv("DATABASE_URL") or (
     f"postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}"
@@ -27,8 +27,8 @@ STORAGE_DB_URL = os.getenv("DATABASE_URL") or (
 S3_INTERNAL_ENDPOINT = os.getenv("S3_INTERNAL_ENDPOINT", "http://minio:9000")
 S3_PUBLIC_ENDPOINT = os.getenv("S3_PUBLIC_ENDPOINT", "http://localhost:9000")
 S3_BUCKET = os.getenv("S3_BUCKET", "emotion")
-S3_ACCESS_KEY = os.getenv("S3_ACCESS_KEY", "minioadmin")
-S3_SECRET_KEY = os.getenv("S3_SECRET_KEY", "minioadmin")
+S3_ACCESS_KEY = os.environ["S3_ACCESS_KEY"]
+S3_SECRET_KEY = os.environ["S3_SECRET_KEY"]
 S3_REGION = os.getenv("S3_REGION", "us-east-1")
 
 PRESIGN_UPLOAD_TTL_SECONDS = int(os.getenv("PRESIGN_UPLOAD_TTL_SECONDS", "900"))   # 15m

@@ -7,6 +7,7 @@ always exists for any s3_key we hand out / store.
 from __future__ import annotations
 
 import base64
+import re
 import uuid
 from typing import Optional
 
@@ -145,11 +146,23 @@ class FileService:
         return [self._to_response(r) for r in rows]
 
     # ══════════════════════════════════════════
+    # Filename sanitisation
+    # ══════════════════════════════════════════
+    @staticmethod
+    def _sanitize_filename(name: str) -> str:
+        """Strip path separators, .., keep [a-zA-Z0-9._-], cap 128 chars."""
+        # Remove path separators and ..
+        name = name.replace("/", "").replace("\\", "").replace("..", "")
+        # Keep only safe characters
+        name = re.sub(r"[^a-zA-Z0-9._-]", "", name)
+        return name[:128] if name else "upload"
+
+    # ══════════════════════════════════════════
     # Key builders
     # ══════════════════════════════════════════
     @staticmethod
     def _upload_key(session_id: str, file_id: uuid.UUID, filename:Optional[str]) -> str:
-        suffix = filename or "upload"
+        suffix = FileService._sanitize_filename(filename) if filename else "upload"
         return f"sessions/{session_id}/source/{file_id}_{suffix}"
     @staticmethod
     def _crop_key(

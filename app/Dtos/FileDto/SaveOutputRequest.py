@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SaveOutputRequest(BaseModel):
@@ -9,6 +9,6 @@ class SaveOutputRequest(BaseModel):
     file, storage uploads + records.
     """
     session_id: str
-    data: str            # base64 bytes of the output file
+    data: str = Field(max_length=70_000_000)  # base64 bytes of the output file
     mime_type: str
     file_type: str = "burned"
