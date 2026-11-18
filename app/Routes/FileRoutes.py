@@ -9,13 +9,18 @@ from the public side.
   POST /internal/save-crops        orchestrator
   POST /internal/save-output       burner
   GET  /internal/files             gateway, orchestrator
+  GET    /internal/sessions/{id}/source   gateway (real uploaded size via HEAD)
+  DELETE /internal/sessions/{id}/source   gateway (drop an over-limit upload)
 """
 from __future__ import annotations
 
 from typing import Optional
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Query
 
+from app.Dtos.FileDto.DeleteSourceResponse import DeleteSourceResponse
 from app.Dtos.FileDto.FileResponse import FileResponse
 from app.Dtos.FileDto.PresignDownloadRequest import PresignDownloadRequest
 from app.Dtos.FileDto.PresignDownloadResponse import PresignDownloadResponse
@@ -25,6 +30,7 @@ from app.Dtos.FileDto.SaveCropsRequest import SaveCropsRequest
 from app.Dtos.FileDto.SaveCropsResponse import SaveCropsResponse
 from app.Dtos.FileDto.SaveOutputRequest import SaveOutputRequest
 from app.Dtos.FileDto.SaveOutputResponse import SaveOutputResponse
+from app.Dtos.FileDto.SourceObjectResponse import SourceObjectResponse
 from app.Services.FileService import FileService
 from app.Dependencies import get_file_service
 from app.Security.ServiceAuth import require_service_auth
@@ -78,3 +84,19 @@ async def list_files(
         category=category,
         file_type=file_type,
     )
+
+
+@router.get("/sessions/{session_id}/source", response_model=SourceObjectResponse)
+async def head_source(
+    session_id: UUID,
+    files: FileService = Depends(get_file_service),
+) -> SourceObjectResponse:
+    return await files.head_source(str(session_id))
+
+
+@router.delete("/sessions/{session_id}/source", response_model=DeleteSourceResponse)
+async def delete_source(
+    session_id: UUID,
+    files: FileService = Depends(get_file_service),
+) -> DeleteSourceResponse:
+    return await files.delete_source(str(session_id))
