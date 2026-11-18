@@ -1,6 +1,5 @@
 """
-FileService — presign, save, list, and the session-source probe/delete the
-gateway uses to enforce plan size limits on what was actually uploaded.
+FileService — presign, save, list.
 
 Each method is one named operation. S3 + DB writes paired so a row
 always exists for any s3_key we hand out / store.
@@ -12,7 +11,6 @@ import re
 import uuid
 from typing import Optional
 
-from app.Dtos.FileDto.DeleteSourceResponse import DeleteSourceResponse
 from app.Dtos.FileDto.FileResponse import FileResponse
 from app.Dtos.FileDto.PresignDownloadRequest import PresignDownloadRequest
 from app.Dtos.FileDto.PresignDownloadResponse import PresignDownloadResponse
@@ -22,7 +20,6 @@ from app.Dtos.FileDto.SaveCropsRequest import SaveCropsRequest
 from app.Dtos.FileDto.SaveCropsResponse import SaveCropsResponse, SavedCropInfo
 from app.Dtos.FileDto.SaveOutputRequest import SaveOutputRequest
 from app.Dtos.FileDto.SaveOutputResponse import SaveOutputResponse
-from app.Dtos.FileDto.SourceObjectResponse import SourceObjectResponse
 from app.Entities.FileRecord import FileRecord
 from app.Exceptions import FileNotFound
 from app.Repositories.FileRepository import FileRepository
@@ -50,14 +47,11 @@ class FileService:
             s3_key=s3_key,
             mime_type=req.mime_type,
             original_filename=req.original_filename,
-            # Declared size; replaced with the real size by head_source().
-            size_bytes=req.size_bytes,
+
         )
         await self.files.create(record)
 
-        upload_url = await self.s3.presign_put(
-            s3_key, req.mime_type, content_length=req.size_bytes
-        )
+        upload_url = await self.s3.presign_put(s3_key,req.mime_type)
         return PresignUploadResponse(
             file_id=str(file_id),
             upload_url=upload_url,
@@ -132,37 +126,6 @@ class FileService:
         )
         await self.files.create(record)
         return SaveOutputResponse(file_id=str(file_id), s3_key=s3_key)
-    # ══════════════════════════════════════════
-    # Session source (gateway → storage, upload complete)
-    # ══════════════════════════════════════════
-
-    async def head_source(self, session_id: str) -> SourceObjectResponse:
-        """
-        HEAD the session's uploaded source object and return its real size.
-        FileNotFound if there's no source row or nothing was uploaded.
-        """
-        record = await self.files.find_source_for_session(session_id)
-        if not record:
-            raise FileNotFound()
-
-        size = await self.s3.object_size(record.s3_key)
-        if record.size_bytes != size:
-            await self.files.update_size(record.id, size)
-        return SourceObjectResponse(
-            file_id=str(record.id),
-            s3_key=record.s3_key,
-            size_bytes=size,
-            mime_type=record.mime_type,
-        )
-
-    async def delete_source(self, session_id: str) -> DeleteSourceResponse:
-        """Delete every source object + row for a session (e.g. over the plan size)."""
-        records = await self.files.list_files(session_id=session_id, category="source")
-        for r in records:
-            await self.s3.delete_object(r.s3_key)
-        await self.files.delete_by_ids([r.id for r in records])
-        return DeleteSourceResponse(deleted=len(records))
-
     # ══════════════════════════════════════════
     # List
     # ══════════════════════════════════════════
