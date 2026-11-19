@@ -12,14 +12,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, Optional
+
+from botocore.exceptions import ClientError
 
 from app.Config import (
     PRESIGN_DOWNLOAD_TTL_SECONDS,
     PRESIGN_UPLOAD_TTL_SECONDS,
     S3_BUCKET,
 )
-from app.Exceptions import PresignFailed, UploadFailed
+from app.Exceptions import FileNotFound, PresignFailed, S3Error, UploadFailed
 
 logger = logging.getLogger("storage.s3-client")
 
@@ -32,15 +34,25 @@ class S3Client:
 
     # ── Presigning ──────────────────────────────────
 
-    async def presign_put(self, s3_key: str, content_type: str) -> str:
+    async def presign_put(
+        self, s3_key: str, content_type: str, content_length: Optional[int] = None
+    ) -> str:
+        """
+        content_length, when given, becomes a signed header (SigV4 puts it in
+        X-Amz-SignedHeaders), so the PUT only verifies with that exact size.
+        """
+        params: dict[str, Any] = {
+            "Bucket": self.bucket,
+            "Key": s3_key,
+            "ContentType": content_type,
+        }
+        if content_length is not None:
+            params["ContentLength"] = content_length
+
         def _go() -> str:
             return self.presign.generate_presigned_url(
                 "put_object",
-                Params={
-                    "Bucket": self.bucket,
-                    "Key": s3_key,
-                    "ContentType": content_type,
-                },
+                Params=params,
                 ExpiresIn=PRESIGN_UPLOAD_TTL_SECONDS,
             )
         try:
@@ -86,3 +98,30 @@ class S3Client:
         def _go() -> dict[str, Any]:
             return self.ops.head_object(Bucket=self.bucket, Key=s3_key)
         return await asyncio.to_thread(_go)
+
+    async def object_size(self, s3_key: str) -> int:
+        """Actual stored size via HEAD. FileNotFound if the object isn't there."""
+        try:
+            head = await self.head_object(s3_key)
+        except ClientError as e:
+            code = str(e.response.get("Error", {}).get("Code", ""))
+            if code in ("404", "NoSuchKey", "NotFound"):
+                raise FileNotFound()
+            logger.error("head_object failed for %s: %s", s3_key, e)
+            raise S3Error()
+        except Exception as e:
+            logger.error("head_object failed for %s: %s", s3_key, e)
+            raise S3Error()
+        return int(head["ContentLength"])
+
+    # ── Delete ──────────────────────────────────────
+
+    async def delete_object(self, s3_key: str) -> None:
+        """Idempotent — S3 returns success for a missing key."""
+        def _go() -> None:
+            self.ops.delete_object(Bucket=self.bucket, Key=s3_key)
+        try:
+            await asyncio.to_thread(_go)
+        except Exception as e:
+            logger.error("delete_object failed for %s: %s", s3_key, e)
+            raise S3Error()

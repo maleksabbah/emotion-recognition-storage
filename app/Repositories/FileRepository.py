@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 from typing import Iterable, Optional
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.Entities.FileRecord import FileRecord
@@ -41,6 +41,32 @@ class FileRepository:
             stmt = stmt.where(FileRecord.file_type == file_type)
         result = await self.db.execute(stmt.order_by(FileRecord.created_at.desc()))
         return list(result.scalars().all())
+
+    async def find_source_for_session(self, session_id: str) -> Optional[FileRecord]:
+        """Latest category='source' row for a session (one per presign)."""
+        result = await self.db.execute(
+            select(FileRecord)
+            .where(
+                FileRecord.session_id == _as_uuid(session_id),
+                FileRecord.category == "source",
+            )
+            .order_by(FileRecord.created_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    async def update_size(self, file_id: str | uuid.UUID, size_bytes: int) -> None:
+        await self.db.execute(
+            update(FileRecord)
+            .where(FileRecord.id == _as_uuid(file_id))
+            .values(size_bytes=size_bytes)
+        )
+
+    async def delete_by_ids(self, file_ids: Iterable[uuid.UUID]) -> None:
+        ids = list(file_ids)
+        if not ids:
+            return
+        await self.db.execute(delete(FileRecord).where(FileRecord.id.in_(ids)))
 
     async def create(self, record: FileRecord) -> FileRecord:
         self.db.add(record)
